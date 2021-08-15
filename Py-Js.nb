@@ -1,0 +1,98 @@
+# %% [markdown]
+# Python / JS conversions
+# %% [markdown]
+Reference: [Pyodide Type Translations](https://pyodide.org/en/stable/usage/type-conversions.html)
+# %% [python]
+import js
+# %% [markdown]
+## From the Python side
+# %% [markdown]
+### Named function parameters 
+
+In Javascript, you can to specify function parameters by name using [destructing assignment](https://javascript.info/destructuring-assignment#smart-function-parameters):
+# %% [javascript]
+function configure({help = null, verbose = null} = {}) {
+  console.log("help: ", help, ", verbose :", verbose);
+}
+
+configure()
+configure({help: true})
+configure({help: true, verbose: true})
+# %% [markdown]
+In Python, you would use keyword arguments, so that's what you should do to call such javascript functions:
+# %% [python]
+# Python 🐍 sjkdhskjdhdsk
+js.configure()
+js.configure(help=True)
+js.configure(help=True, verbose=True)
+# %% [markdown]
+Note that using a Python dict instead would crash starboard / pyodide.
+# %% [python]
+js.configure({"help": True, "verbose": True}) # Please don't do that 🥺
+# %% [markdown]
+To call a JS function expecteing a POJO, i.e to emulate something like
+
+    # Javascript 🕸️
+    configure({help: false, verbose: true})
+
+use keyword arguments:
+
+    # Python 🐍
+    configure(help=False, verbose=True)
+# %% [markdown]
+## Things that work out of the box
+
+**TODO**
+# %% [markdown]
+## Things that are complicated ...
+# %% [markdown]
+The
+
+Convert a Python dict to a Plain Old Javascript Object is a pain in the ass ... That's too bad because that's a pattern we are going to need very frequently basically for every call from Python to a javascript that expects "keyword arguments". So let me be clear: the pattern 
+
+        renderer = THREE.WebGLRenderer.new({"antialias": True})
+
+won't work out of the box for instance.
+# %% [javascript]
+function add({x, y}) {
+  return x + y;
+}
+# %% [javascript]
+add({x: 1, y:2})
+# %% [python]
+from js import add
+add({"x": 1, "y": 2})
+# %% [python]
+First, this is not in the scope of implicit (automatic con)
+# %% [python]
+import js
+window.d1 = {"a": 1}
+window.d2 = to_js({"a": 1})
+window.d3 = to_js({"a": 1}, -1, None, None) # TypeError: to_js() takes at most 2 arguments (4 given). Old version of pyodide ?
+# window.options = POJO({"antialias": True})
+
+js.z = js.Object.new()
+# %% [javascript]
+console.log(d1)
+console.log(d2) // Map, not POJO
+console.log({"a": 1})
+console.log(options)
+console.log()
+# %% [javascript]
+// ES Module to "something I can use from Python" is complicated apparently
+
+let TM = await import("https://cdn.skypack.dev/three"); // Three as an ES Module
+let symbols = ["PerspectiveCamera", "Scene", "BoxGeometry", "MeshNormalMaterial", "Mesh", "WebGLRenderer"]
+THREE = {} // (parts of) THREE as POJO, for the sake of pyodide (can't transfer modules to Python so far?)
+for (symbol of symbols) {
+  THREE[symbol] = TM[symbol]
+}
+
+// Little conversion helper (Python dict maps to Map by default)
+function POJO(python_dict_proxy) {
+  return python_dict_proxy.toJs({dict_converter : Object.fromEntries})
+}
+# %% [python]
+        # TypeError: to_js() takes no keyword arguments. Whoot? The source at 
+        # <https://github.com/pyodide/pyodide/blob/2262165570b4b03c7253248043bc6b1466d2410e/src/core/python2js.c>
+        # tells me that "depth", "pyproxies", "create_pyproxies", "dict_converter" should be ok !?!
